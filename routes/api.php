@@ -23,4 +23,5 @@ Route::post('/auth/sign-in', [\App\Http\Controllers\AuthController::class, 'logi
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/protected/codes', [\App\Http\Controllers\CodeController::class, 'store']);
     Route::get('/protected/account', [\App\Http\Controllers\AuthController::class, 'account']);
+    Route::get('/protected/invoices/{id}', [\App\Http\Controllers\InvoiceController::class, 'show']);
 });

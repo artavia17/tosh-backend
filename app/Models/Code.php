@@ -13,7 +13,7 @@ class Code extends Model
 
     protected $fillable = [
         'user_id',
-        'code',
+        'invoice_path',
     ];
 
     public function user(): BelongsTo

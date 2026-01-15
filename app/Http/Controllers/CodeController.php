@@ -12,7 +12,7 @@ class CodeController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'code' => 'required|string',
+            'invoice' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp,bmp,tiff,ico|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -23,14 +23,16 @@ class CodeController extends Controller
             ], 422);
         }
 
+        $invoicePath = $request->file('invoice')->store('invoices', 'public');
+
         $code = Code::create([
             'user_id' => $request->user()->id,
-            'code' => $request->code,
+            'invoice_path' => $invoicePath,
         ]);
 
         return response()->json([
             'status' => 201,
-            'message' => 'Code submitted successfully',
+            'message' => 'Invoice uploaded successfully',
             'data' => $code,
         ], 201);
     }

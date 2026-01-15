@@ -102,12 +102,21 @@ class AuthController extends Controller
     {
         $user = $request->user()->load('codes');
 
+        $codes = $user->codes->map(function ($code) {
+            return [
+                'id' => $code->id,
+                'invoice_url' => url("/api/protected/invoices/{$code->id}"),
+                'created_at' => $code->created_at,
+                'updated_at' => $code->updated_at,
+            ];
+        });
+
         return response()->json([
             'status' => 200,
             'message' => 'Account retrieved successfully',
             'data' => [
                 'name' => $user->name,
-                'codes' => $user->codes,
+                'codes' => $codes,
             ],
         ]);
     }

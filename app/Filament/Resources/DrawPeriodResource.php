@@ -210,7 +210,7 @@ class DrawPeriodResource extends Resource
 
     protected static function executeWeeklyDraw(DrawPeriod $period)
     {
-        // Obtener códigos registrados en este período que no hayan ganado
+        // Obtener facturas registradas en este período que no hayan ganado
         $eligibleCodes = Code::whereHas('user', function ($query) use ($period) {
                 $query->where('country_id', $period->country_id);
             })
@@ -222,8 +222,8 @@ class DrawPeriodResource extends Resource
         if ($eligibleCodes->isEmpty()) {
             Notification::make()
                 ->warning()
-                ->title('No hay códigos elegibles')
-                ->body('No se encontraron códigos registrados en este período que no hayan ganado.')
+                ->title('No hay facturas elegibles')
+                ->body('No se encontraron facturas registradas en este período que no hayan ganado.')
                 ->send();
             return;
         }

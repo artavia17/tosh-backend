@@ -55,8 +55,8 @@ class WinnerResource extends Resource
                     ->label('Usuario')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('code.code')
-                    ->label('Código')
+                Tables\Columns\TextColumn::make('code.id')
+                    ->label('ID Factura')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('prize.name')
@@ -126,7 +126,7 @@ class WinnerResource extends Resource
                                 $set('prize_id', null);
                             }),
                         Forms\Components\Select::make('code_id')
-                            ->label('Código del Usuario')
+                            ->label('Factura del Usuario')
                             ->options(function (Forms\Get $get) {
                                 $periodId = $get('draw_period_id');
                                 if (!$periodId) {
@@ -138,7 +138,7 @@ class WinnerResource extends Resource
                                     return [];
                                 }
 
-                                // Obtener TODOS los códigos del período (sin restricciones)
+                                // Obtener TODAS las facturas del período (sin restricciones)
                                 return \App\Models\Code::with('user')
                                     ->whereHas('user', function ($query) use ($period) {
                                         $query->where('country_id', $period->country_id);
@@ -146,14 +146,14 @@ class WinnerResource extends Resource
                                     ->whereBetween('created_at', [$period->start_date, $period->end_date->addDay()])
                                     ->get()
                                     ->mapWithKeys(function ($code) {
-                                        return [$code->id => $code->code . ' - ' . $code->user->name . ' (' . $code->user->email . ')'];
+                                        return [$code->id => 'ID: ' . $code->id . ' - ' . $code->user->name . ' (' . $code->user->email . ')'];
                                     })
                                     ->toArray();
                             })
                             ->required()
                             ->searchable()
                             ->disabled(fn (Forms\Get $get) => !$get('draw_period_id'))
-                            ->helperText('Se muestran todos los códigos del período seleccionado')
+                            ->helperText('Se muestran todas las facturas del período seleccionado')
                             ->live()
                             ->afterStateUpdated(fn ($set) => $set('prize_id', null)),
                         Forms\Components\Select::make('prize_id')
@@ -321,7 +321,7 @@ class WinnerResource extends Resource
                             $sheet = $spreadsheet->getActiveSheet();
 
                             // Headers
-                            $headers = ['Período', 'Fecha Inicio', 'Fecha Final', 'País', 'Nombre', 'Email', 'Teléfono', 'Identificación', 'Código', 'Premio', 'Fecha Asignación'];
+                            $headers = ['Período', 'Fecha Inicio', 'Fecha Final', 'País', 'Nombre', 'Email', 'Teléfono', 'Identificación', 'ID Factura', 'Premio', 'Fecha Asignación'];
                             $sheet->fromArray($headers, null, 'A1');
 
                             // Data
@@ -336,7 +336,7 @@ class WinnerResource extends Resource
                                     $winner->user->email ?? '',
                                     $winner->user->phone_number ?? '',
                                     $winner->user->id_number ?? '',
-                                    $winner->code->code ?? '',
+                                    $winner->code->id ?? '',
                                     $winner->prize->name ?? '',
                                     $winner->created_at->format('Y-m-d H:i:s'),
                                 ], null, 'A' . $row);
