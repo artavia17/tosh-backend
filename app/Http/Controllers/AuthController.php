@@ -16,7 +16,7 @@ class AuthController extends Controller
             'country_id' => 'required|exists:countries,id',
             'email' => 'required|string|email|max:255|unique:users',
             'id_type' => 'required|string|max:50',
-            'id_number' => 'required|string|max:50',
+            'id_number' => 'required|string|max:50|unique:users',
             'phone_number' => 'required|string|max:20',
             'marketing_opt_in' => 'boolean',
             'whatsapp_opt_in' => 'boolean',
@@ -102,21 +102,12 @@ class AuthController extends Controller
     {
         $user = $request->user()->load('codes');
 
-        $codes = $user->codes->map(function ($code) {
-            return [
-                'id' => $code->id,
-                'invoice_url' => url("/api/protected/invoices/{$code->id}"),
-                'created_at' => $code->created_at,
-                'updated_at' => $code->updated_at,
-            ];
-        });
-
         return response()->json([
             'status' => 200,
             'message' => 'Account retrieved successfully',
             'data' => [
                 'name' => $user->name,
-                'codes' => $codes,
+                'codes' => $user->codes,
             ],
         ]);
     }

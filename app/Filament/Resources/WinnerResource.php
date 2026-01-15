@@ -98,6 +98,161 @@ class WinnerResource extends Resource
                 ]),
             ])
             ->headerActions([
+                Tables\Actions\Action::make('assignWinner')
+                    ->label('Asignar Ganador Manualmente')
+                    ->color('primary')
+                    ->icon('heroicon-o-user-plus')
+                    ->modalHeading('Asignar Ganador Manualmente')
+                    ->modalDescription('Asigne un ganador a un sorteo existente respetando las reglas de la campaña')
+                    ->modalWidth('2xl')
+                    ->form([
+                        Forms\Components\Select::make('draw_period_id')
+                            ->label('Período de Sorteo')
+                            ->options(function () {
+                                return \App\Models\DrawPeriod::where('draw_executed', true)
+                                    ->with('country')
+                                    ->orderBy('start_date', 'desc')
+                                    ->get()
+                                    ->mapWithKeys(function ($period) {
+                                        return [$period->id => $period->name . ' (' . $period->country->name . ')'];
+                                    })
+                                    ->toArray();
+                            })
+                            ->required()
+                            ->searchable()
+                            ->live()
+                            ->afterStateUpdated(function ($set) {
+                                $set('code_id', null);
+                                $set('prize_id', null);
+                            }),
+                        Forms\Components\Select::make('code_id')
+                            ->label('Código del Usuario')
+                            ->options(function (Forms\Get $get) {
+                                $periodId = $get('draw_period_id');
+                                if (!$periodId) {
+                                    return [];
+                                }
+
+                                $period = \App\Models\DrawPeriod::find($periodId);
+                                if (!$period) {
+                                    return [];
+                                }
+
+                                // Obtener TODOS los códigos del período (sin restricciones)
+                                return \App\Models\Code::with('user')
+                                    ->whereHas('user', function ($query) use ($period) {
+                                        $query->where('country_id', $period->country_id);
+                                    })
+                                    ->whereBetween('created_at', [$period->start_date, $period->end_date->addDay()])
+                                    ->get()
+                                    ->mapWithKeys(function ($code) {
+                                        return [$code->id => $code->code . ' - ' . $code->user->name . ' (' . $code->user->email . ')'];
+                                    })
+                                    ->toArray();
+                            })
+                            ->required()
+                            ->searchable()
+                            ->disabled(fn (Forms\Get $get) => !$get('draw_period_id'))
+                            ->helperText('Se muestran todos los códigos del período seleccionado')
+                            ->live()
+                            ->afterStateUpdated(fn ($set) => $set('prize_id', null)),
+                        Forms\Components\Select::make('prize_id')
+                            ->label('Premio a Asignar')
+                            ->options(function (Forms\Get $get) {
+                                $periodId = $get('draw_period_id');
+                                $codeId = $get('code_id');
+
+                                if (!$periodId) {
+                                    return [];
+                                }
+
+                                $period = \App\Models\DrawPeriod::find($periodId);
+
+                                if (!$period) {
+                                    return [];
+                                }
+
+                                // Obtener todos los premios del período
+                                $periodPrizes = $period->prizes()->get();
+
+                                // Obtener inventario de premios para mostrar información
+                                $prizePools = \App\Models\PrizePool::where('country_id', $period->country_id)
+                                    ->get()
+                                    ->keyBy('prize_id');
+
+                                // Si hay un código seleccionado, filtrar premios ya ganados por ese usuario NUNCA (en toda la campaña)
+                                if ($codeId) {
+                                    $code = \App\Models\Code::find($codeId);
+                                    if ($code) {
+                                        // Obtener premios que este usuario YA ganó ALGUNA VEZ (en cualquier sorteo)
+                                        $userWonPrizesEver = \App\Models\Winner::where('user_id', $code->user_id)
+                                            ->where('country_id', $period->country_id)
+                                            ->pluck('prize_id')
+                                            ->unique()
+                                            ->toArray();
+
+                                        // Filtrar premios que NO ha ganado NUNCA
+                                        $periodPrizes = $periodPrizes->filter(function ($prize) use ($userWonPrizesEver) {
+                                            return !in_array($prize->id, $userWonPrizesEver);
+                                        });
+                                    }
+                                }
+
+                                if ($periodPrizes->isEmpty()) {
+                                    return ['disabled' => 'Este usuario ya ganó todos los premios disponibles (inhabilitado)'];
+                                }
+
+                                return $periodPrizes->mapWithKeys(function ($prize) use ($prizePools) {
+                                    $pool = $prizePools->get($prize->id);
+                                    return [
+                                        $prize->id => $prize->name .
+                                            ' (Período: ' . $prize->pivot->awarded_quantity . '/' . $prize->pivot->max_quantity .
+                                            ', Stock: ' . ($pool ? $pool->remaining : 0) . ')'
+                                    ];
+                                })->toArray();
+                            })
+                            ->required()
+                            ->searchable()
+                            ->disabled(fn (Forms\Get $get) => !$get('draw_period_id'))
+                            ->helperText('Solo se muestran premios que el usuario NO ha ganado nunca'),
+                        Forms\Components\Textarea::make('notes')
+                            ->label('Notas (Opcional)')
+                            ->maxLength(500)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (array $data) {
+                        $period = \App\Models\DrawPeriod::find($data['draw_period_id']);
+                        $code = \App\Models\Code::find($data['code_id']);
+                        $prize = \App\Models\Prize::find($data['prize_id']);
+
+                        // SIN validaciones - asignación manual permite duplicados
+
+                        // Crear ganador
+                        \App\Models\Winner::create([
+                            'user_id' => $code->user_id,
+                            'code_id' => $code->id,
+                            'prize_id' => $prize->id,
+                            'draw_period_id' => $period->id,
+                            'country_id' => $period->country_id,
+                            'notes' => $data['notes'] ?? null,
+                        ]);
+
+                        // Actualizar contador del período
+                        $period->prizes()->updateExistingPivot($prize->id, [
+                            'awarded_quantity' => \DB::raw('awarded_quantity + 1')
+                        ]);
+
+                        // Actualizar inventario general
+                        \App\Models\PrizePool::where('prize_id', $prize->id)
+                            ->where('country_id', $period->country_id)
+                            ->increment('awarded_quantity');
+
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Ganador asignado exitosamente')
+                            ->body("Se asignó el premio '{$prize->name}' a {$code->user->name}")
+                            ->send();
+                    }),
                 Tables\Actions\Action::make('export')
                     ->label('Exportar a Excel')
                     ->color('success')

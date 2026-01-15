@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('codes', function (Blueprint $table) {
-            $table->dropColumn('code');
-            $table->string('invoice_path');
+        Schema::table('draw_periods', function (Blueprint $table) {
+            $table->boolean('is_public')->default(false)->after('draw_executed_at');
         });
     }
 
@@ -22,9 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('codes', function (Blueprint $table) {
-            $table->dropColumn('invoice_path');
-            $table->string('code');
+        Schema::table('draw_periods', function (Blueprint $table) {
+            $table->dropColumn('is_public');
         });
     }
 };

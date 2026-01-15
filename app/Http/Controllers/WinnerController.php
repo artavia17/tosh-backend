@@ -42,10 +42,12 @@ class WinnerController extends Controller
             ], 400);
         }
 
-        // Get winners filtered by country, grouped by draw period
+        // Get winners filtered by country, only from public draw periods
         $winners = Winner::with(['user', 'country', 'code', 'prize', 'drawPeriod'])
             ->where('country_id', $countryId)
-            ->whereHas('drawPeriod')
+            ->whereHas('drawPeriod', function ($query) {
+                $query->where('is_public', true);
+            })
             ->orderBy('created_at', 'desc')
             ->get()
             ->groupBy('draw_period_id')

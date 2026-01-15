@@ -20,6 +20,7 @@ class DrawPeriod extends Model
         'weekly_winners_target',
         'draw_executed',
         'draw_executed_at',
+        'is_public',
     ];
 
     protected function casts(): array
@@ -30,6 +31,7 @@ class DrawPeriod extends Model
             'draw_executed' => 'boolean',
             'draw_executed_at' => 'datetime',
             'weekly_winners_target' => 'integer',
+            'is_public' => 'boolean',
         ];
     }
 

@@ -64,6 +64,12 @@ class DrawPeriodResource extends Resource
                     ->minValue(1)
                     ->helperText('Cantidad total de ganadores para este período'),
 
+                Forms\Components\Toggle::make('is_public')
+                    ->label('Mostrar ganadores públicamente')
+                    ->helperText('Activar para que los ganadores de este sorteo aparezcan en la API pública')
+                    ->default(false)
+                    ->inline(false),
+
                 Forms\Components\Section::make('Configuración de Premios')
                     ->description('Configure la cantidad máxima de cada premio a otorgar en este período')
                     ->schema([
@@ -132,6 +138,13 @@ class DrawPeriodResource extends Resource
                 Tables\Columns\IconColumn::make('draw_executed')
                     ->label('Sorteo Ejecutado')
                     ->boolean(),
+                Tables\Columns\IconColumn::make('is_public')
+                    ->label('Público')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-eye')
+                    ->falseIcon('heroicon-o-eye-slash')
+                    ->trueColor('success')
+                    ->falseColor('gray'),
                 Tables\Columns\TextColumn::make('draw_executed_at')
                     ->label('Fecha Ejecución')
                     ->dateTime()
@@ -246,9 +259,17 @@ class DrawPeriodResource extends Resource
             })
             ->toArray();
 
+        // Rastrear qué usuarios ya ganaron en ESTE PERÍODO (para limitar a 1 premio por sorteo)
+        $usersWonInThisPeriod = [];
+
         foreach ($eligibleCodes as $code) {
             if ($assignedWinners >= $winnersToAssign) {
                 break; // Ya alcanzamos el máximo de ganadores
+            }
+
+            // NUEVO: Verificar si este usuario ya ganó en este período
+            if (in_array($code->user_id, $usersWonInThisPeriod)) {
+                continue; // Este usuario ya ganó 1 premio en este sorteo, pasar al siguiente código
             }
 
             // Filtrar premios disponibles que el usuario aún no ha ganado EN TODA LA CAMPAÑA
@@ -284,7 +305,10 @@ class DrawPeriodResource extends Resource
                 'country_id' => $period->country_id,
             ]);
 
-            // Registrar que este usuario ganó este premio
+            // NUEVO: Registrar que este usuario ya ganó en ESTE período
+            $usersWonInThisPeriod[] = $code->user_id;
+
+            // Registrar que este usuario ganó este premio (para toda la campaña)
             if (!isset($userPrizeWinners[$code->user_id])) {
                 $userPrizeWinners[$code->user_id] = [];
             }
