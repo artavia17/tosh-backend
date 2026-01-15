@@ -59,7 +59,9 @@ class CodeResource extends Resource
                     ->label('Factura')
                     ->disk('public')
                     ->square()
-                    ->size(60),
+                    ->size(60)
+                    ->url(fn ($record) => $record->invoice_path ? asset('storage/' . $record->invoice_path) : null)
+                    ->openUrlInNewTab(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha Subida')
                     ->dateTime()
@@ -71,7 +73,11 @@ class CodeResource extends Resource
                     ->label('País'),
             ])
             ->actions([
-                // No actions - view only
+                Tables\Actions\Action::make('ver_factura')
+                    ->label('Ver Factura')
+                    ->icon('heroicon-o-eye')
+                    ->url(fn ($record) => asset('storage/' . $record->invoice_path))
+                    ->openUrlInNewTab(),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('export')
